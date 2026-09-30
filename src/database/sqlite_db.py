@@ -246,3 +246,55 @@ def get_compound_by_name(name):
         inchikey=row[4],
         canonical_smiles=row[5]
     )
+
+
+# --------------------------------------------------
+# LIST SAVED COMPOUNDS BY NAME / ALIAS
+# --------------------------------------------------
+
+def get_all_compounds():
+    """
+    Retrieve all compounds stored in the database.
+
+    Returns:
+        List of Compound objects.
+    """
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            cid,
+            name,
+            smiles,
+            inchi,
+            inchikey,
+            canonical_smiles
+        FROM compounds
+        ORDER BY name COLLATE NOCASE
+        """
+    )
+
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    compounds = []
+
+    for row in rows:
+
+        compound = Compound(
+            cid=row[0],
+            name=row[1],
+            smiles=row[2],
+            inchi=row[3],
+            inchikey=row[4],
+            canonical_smiles=row[5]
+        )
+
+        compounds.append(compound)
+
+    return compounds

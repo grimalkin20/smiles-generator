@@ -5,19 +5,68 @@ from resolver.pubchem import (
 
 from chemistry.rdkit_utils import (
     validate_smiles,
-    canonicalize_smiles
+    canonicalize_smiles,
+    calculate_properties
 )
 
 from database.sqlite_db import (
     initialize_database,
     get_compound_by_name,
+    get_all_compounds,
     save_compound
 )
 
 
+def calculate_compound_properties(compound):
+    """
+    Calculate molecular properties and attach them
+    to the Compound object.
+    """
+
+    properties = calculate_properties(
+        compound.smiles
+    )
+
+    compound.molecular_formula = (
+        properties["molecular_formula"]
+    )
+
+    compound.molecular_weight = (
+        properties["molecular_weight"]
+    )
+
+    compound.logp = (
+        properties["logp"]
+    )
+
+    compound.tpsa = (
+        properties["tpsa"]
+    )
+
+    compound.h_bond_donors = (
+        properties["h_bond_donors"]
+    )
+
+    compound.h_bond_acceptors = (
+        properties["h_bond_acceptors"]
+    )
+
+    compound.rotatable_bonds = (
+        properties["rotatable_bonds"]
+    )
+
+    compound.ring_count = (
+        properties["ring_count"]
+    )
+
+    compound.heavy_atoms = (
+        properties["heavy_atoms"]
+    )
+
+
 def display_compound(compound):
     """
-    Display compound information in the terminal.
+    Display detailed information about a compound.
     """
 
     print()
@@ -34,6 +83,56 @@ def display_compound(compound):
 
     print()
 
+    print("----------- MOLECULAR PROPERTIES -----------")
+    print()
+
+    print(
+        "Formula            :",
+        compound.molecular_formula
+    )
+
+    print(
+        "Molecular Weight   :",
+        f"{compound.molecular_weight:.3f}"
+    )
+
+    print(
+        "LogP               :",
+        f"{compound.logp:.4f}"
+    )
+
+    print(
+        "TPSA               :",
+        f"{compound.tpsa:.2f}"
+    )
+
+    print(
+        "H-Bond Donors      :",
+        compound.h_bond_donors
+    )
+
+    print(
+        "H-Bond Acceptors   :",
+        compound.h_bond_acceptors
+    )
+
+    print(
+        "Rotatable Bonds    :",
+        compound.rotatable_bonds
+    )
+
+    print(
+        "Ring Count         :",
+        compound.ring_count
+    )
+
+    print(
+        "Heavy Atoms        :",
+        compound.heavy_atoms
+    )
+
+    print()
+
     print(
         "RDKit validation:",
         validate_smiles(compound.smiles)
@@ -45,24 +144,40 @@ def display_compound(compound):
 def search_compound(compound_name):
     """
     Search for a compound locally first.
-    If it is not found, search PubChem.
+
+    If the compound is not found locally,
+    search PubChem.
+
+    Molecular properties are calculated after
+    obtaining the compound structure.
 
     Returns:
         Compound object if successful.
-        None if the compound cannot be found.
+        None if not found.
     """
 
     # --------------------------------------------------
     # STEP 1: Check local database
     # --------------------------------------------------
 
+    print()
     print("Checking local database...")
 
-    compound = get_compound_by_name(compound_name)
+    compound = get_compound_by_name(
+        compound_name
+    )
 
     if compound:
 
-        print("✓ Compound found in local database.")
+        print(
+            "✓ Compound found in local database."
+        )
+
+        # Calculate properties for the
+        # locally retrieved compound.
+        calculate_compound_properties(
+            compound
+        )
 
         return compound
 
@@ -70,7 +185,10 @@ def search_compound(compound_name):
     # STEP 2: Search PubChem
     # --------------------------------------------------
 
-    print("Compound not found locally.")
+    print(
+        "Compound not found locally."
+    )
+
     print("Searching PubChem...")
     print()
 
@@ -80,12 +198,15 @@ def search_compound(compound_name):
             compound_name
         )
 
-        compound = extract_compound_info(data)
+        compound = extract_compound_info(
+            data
+        )
 
     except LookupError:
 
         print("✗ Compound not found.")
         print()
+
         print(
             "Please check the chemical name "
             "and try again."
@@ -95,7 +216,9 @@ def search_compound(compound_name):
 
     except ValueError as error:
 
-        print(f"✗ {error}")
+        print(
+            f"✗ {error}"
+        )
 
         return None
 
@@ -106,6 +229,7 @@ def search_compound(compound_name):
         )
 
         print()
+
         print(error)
 
         return None
@@ -114,7 +238,9 @@ def search_compound(compound_name):
     # STEP 3: Validate SMILES using RDKit
     # --------------------------------------------------
 
-    print("Validating SMILES with RDKit...")
+    print(
+        "Validating SMILES with RDKit..."
+    )
 
     is_valid = validate_smiles(
         compound.smiles
@@ -141,7 +267,23 @@ def search_compound(compound_name):
     )
 
     # --------------------------------------------------
-    # STEP 5: Save compound locally
+    # STEP 5: Calculate molecular properties
+    # --------------------------------------------------
+
+    print(
+        "Calculating molecular properties..."
+    )
+
+    calculate_compound_properties(
+        compound
+    )
+
+    print(
+        "✓ Molecular properties calculated."
+    )
+
+    # --------------------------------------------------
+    # STEP 6: Save compound
     # --------------------------------------------------
 
     save_compound(
@@ -149,9 +291,79 @@ def search_compound(compound_name):
         compound_name
     )
 
-    print("✓ Compound saved to local database.")
+    print(
+        "✓ Compound saved to local database."
+    )
 
     return compound
+
+
+def list_saved_compounds():
+    """
+    Display all compounds stored locally.
+    """
+
+    compounds = get_all_compounds()
+
+    print()
+    print("========================================")
+    print("         SAVED COMPOUNDS")
+    print("========================================")
+    print()
+
+    if not compounds:
+
+        print("No compounds saved yet.")
+        print()
+
+        return
+
+    print(
+        f"{'No.':<5}"
+        f"{'Name':<45}"
+        f"{'CID':<12}"
+        f"InChIKey"
+    )
+
+    print("-" * 100)
+
+    for index, compound in enumerate(
+        compounds,
+        start=1
+    ):
+
+        print(
+            f"{index:<5}"
+            f"{compound.name[:43]:<45}"
+            f"{str(compound.cid):<12}"
+            f"{compound.inchikey}"
+        )
+
+    print()
+
+    print(
+        f"Total compounds: {len(compounds)}"
+    )
+
+    print()
+
+
+def show_menu():
+    """
+    Display the main application menu.
+    """
+
+    print()
+    print("========================================")
+    print("        CHEMINFORMATICS TOOL")
+    print("========================================")
+    print()
+
+    print("1. Search compound")
+    print("2. List saved compounds")
+    print("3. Exit")
+
+    print()
 
 
 def main():
@@ -159,61 +371,89 @@ def main():
     Main application entry point.
     """
 
-    # --------------------------------------------------
-    # Initialize database
-    # --------------------------------------------------
-
+    # Make sure the database exists.
     initialize_database()
 
-    print()
-    print("========================================")
-    print("        CHEMINFORMATICS TOOL")
-    print("        NAME → SMILES RESOLVER")
-    print("========================================")
-    print()
+    while True:
 
-    # --------------------------------------------------
-    # Get user input
-    # --------------------------------------------------
+        show_menu()
 
-    compound_name = input(
-        "Enter compound name: "
-    ).strip()
+        choice = input(
+            "Select an option: "
+        ).strip()
 
-    print()
+        # --------------------------------------------------
+        # SEARCH
+        # --------------------------------------------------
 
-    # --------------------------------------------------
-    # Validate input
-    # --------------------------------------------------
+        if choice == "1":
 
-    if not compound_name:
+            print()
 
-        print("✗ Compound name cannot be empty.")
+            compound_name = input(
+                "Enter compound name: "
+            ).strip()
 
-        return
+            if not compound_name:
 
-    # --------------------------------------------------
-    # Search compound
-    # --------------------------------------------------
+                print(
+                    "✗ Compound name cannot be empty."
+                )
 
-    compound = search_compound(
-        compound_name
-    )
+                continue
 
-    # --------------------------------------------------
-    # Display result
-    # --------------------------------------------------
+            compound = search_compound(
+                compound_name
+            )
 
-    if compound:
+            if compound:
 
-        display_compound(
-            compound
-        )
+                display_compound(
+                    compound
+                )
 
+        # --------------------------------------------------
+        # LIST
+        # --------------------------------------------------
 
-# ------------------------------------------------------
-# PROGRAM ENTRY POINT
-# ------------------------------------------------------
+        elif choice == "2":
+
+            list_saved_compounds()
+
+        # --------------------------------------------------
+        # EXIT
+        # --------------------------------------------------
+
+        elif choice == "3":
+
+            print()
+
+            print(
+                "Exiting Chemoinformatics Tool..."
+            )
+
+            print()
+
+            break
+
+        # --------------------------------------------------
+        # INVALID OPTION
+        # --------------------------------------------------
+
+        else:
+
+            print()
+
+            print(
+                "✗ Invalid option."
+            )
+
+            print(
+                "Please select 1, 2, or 3."
+            )
+
 
 if __name__ == "__main__":
     main()
+
+
