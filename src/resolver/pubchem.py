@@ -1,5 +1,6 @@
 import subprocess
 import json
+from urllib.parse import quote
 
 
 def get_compound_from_pubchem(compound_name):
@@ -20,9 +21,12 @@ def get_compound_from_pubchem(compound_name):
     if not compound_name:
         raise ValueError("Compound name cannot be empty.")
 
+    # Safely encode the user's chemical name for use in a URL.
+    encoded_name = quote(compound_name, safe="")
+
     url = (
         "https://pubchem.ncbi.nlm.nih.gov/rest/pug/"
-        f"compound/name/{compound_name}/property/"
+        f"compound/name/{encoded_name}/property/"
         "Title,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON"
     )
 
@@ -49,8 +53,6 @@ def get_compound_from_pubchem(compound_name):
             "PubChem returned invalid JSON."
         )
 
-    # PubChem returns a different JSON structure when
-    # the requested compound cannot be found.
     if "Fault" in data:
         message = data["Fault"].get(
             "Message",
