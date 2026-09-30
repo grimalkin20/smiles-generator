@@ -1,6 +1,7 @@
 import subprocess
 import json
 from urllib.parse import quote
+from models.compound import Compound
 
 
 def get_compound_from_pubchem(compound_name):
@@ -71,7 +72,7 @@ def get_compound_from_pubchem(compound_name):
 
 def extract_compound_info(data):
     """
-    Extract useful chemical information from PubChem response.
+    Convert PubChem response into a Compound object.
     """
 
     properties = data["PropertyTable"]["Properties"]
@@ -83,10 +84,10 @@ def extract_compound_info(data):
 
     compound = properties[0]
 
-    return {
-        "cid": compound.get("CID"),
-        "name": compound.get("Title"),
-        "smiles": compound.get("SMILES"),
-        "inchi": compound.get("InChI"),
-        "inchikey": compound.get("InChIKey")
-    }
+    return Compound(
+        cid=compound.get("CID"),
+        name=compound.get("Title"),
+        smiles=compound.get("SMILES"),
+        inchi=compound.get("InChI"),
+        inchikey=compound.get("InChIKey")
+    )

@@ -43,23 +43,22 @@ except RuntimeError as error:
     exit()
 
 
-smiles = compound["smiles"]
-
 print("✓ Compound found!")
 print()
 
-print("CID        :", compound["cid"])
-print("Name       :", compound["name"])
-print("SMILES     :", smiles)
-print("InChIKey   :", compound["inchikey"])
+print("CID        :", compound.cid)
+print("Name       :", compound.name)
+print("SMILES     :", compound.smiles)
+print("InChIKey   :", compound.inchikey)
 print()
 
-is_valid = validate_smiles(smiles)
+
+is_valid = validate_smiles(compound.smiles)
 
 print("RDKit validation:", is_valid)
 
 if is_valid:
-    canonical_smiles = canonicalize_smiles(smiles)
+    canonical_smiles = canonicalize_smiles(compound.smiles)
 
     print("Canonical SMILES:", canonical_smiles)
 else:
