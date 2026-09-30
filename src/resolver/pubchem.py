@@ -89,5 +89,8 @@ def extract_compound_info(data):
         name=compound.get("Title"),
         smiles=compound.get("SMILES"),
         inchi=compound.get("InChI"),
-        inchikey=compound.get("InChIKey")
+        inchikey=compound.get("InChIKey"),
+        canonical_smiles=compound.get("SMILES")
     )
+
+

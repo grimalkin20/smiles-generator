@@ -12,3 +12,5 @@ class Compound:
     smiles: str
     inchi: str
     inchikey: str
+    canonical_smiles: str | None = None
+
