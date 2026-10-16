@@ -161,7 +161,7 @@ Use this as your development rule:
 
 - [X] Checkpoint 3: Finish experimental property normalization, beginning with Density.
 - [X] Checkpoint 4: Finish the remaining experimental properties.
-- [ ] Checkpoint 5: Add biological activity and molecular target data.
+- [X] Checkpoint 5: Add biological activity and molecular target data.
 - [ ] Checkpoint 6: Add safety and toxicity data.
 - [ ] Checkpoint 7: Complete drug-likeness filters.
 - [ ] Checkpoint 8: Integrate all scientific data into one pipeline.
