@@ -860,6 +860,317 @@ def _split_dissolution_statement(
 
     return observations
 
+# =============================================================================
+# DENSITY
+# =============================================================================
+
+def _normalize_density_unit(
+    unit: str | None,
+) -> str | None:
+    if not unit:
+        return None
+
+    normalized = unit.strip().lower()
+
+    aliases = {
+        "g/cm3": "g/cm³",
+        "g/cm^3": "g/cm³",
+        "g/cm³": "g/cm³",
+
+        "g/cu cm": "g/cm³",
+        "g/cubic cm": "g/cm³",
+
+        "g/ml": "g/mL",
+        "g/mL": "g/mL",
+
+        "kg/m3": "kg/m³",
+        "kg/m^3": "kg/m³",
+        "kg/m³": "kg/m³",
+
+        "kg/l": "kg/L",
+
+        "lb/ft3": "lb/ft³",
+        "lb/ft^3": "lb/ft³",
+        "lb/ft³": "lb/ft³",
+
+        "g/l": "g/L",
+    }
+
+    return aliases.get(
+        normalized,
+        unit.strip(),
+    )
+
+
+def _extract_density_temperature(
+    text: str,
+) -> tuple[
+    float | None,
+    str | None,
+    float | None,
+    str | None,
+]:
+    """
+    Extract measurement temperature and reference temperature.
+
+    Examples:
+
+        20 °C/4 °C
+        18 °C/4 °C
+        68 °F
+
+    Returns:
+
+        measurement_temperature,
+        measurement_temperature_unit,
+        reference_temperature,
+        reference_temperature_unit
+    """
+
+    if not text:
+        return None, None, None, None
+
+    # ---------------------------------------------------------
+    # Two-temperature form:
+    #
+    # 20 °C/4 °C
+    # 18 °C/4 °C
+    # ---------------------------------------------------------
+
+    pair_pattern = re.compile(
+        r"(?P<t1>[+-]?\d+(?:\.\d+)?)"
+        r"\s*"
+        r"(?:°|º|˚)?"
+        r"\s*(?P<u1>C|F|K)"
+        r"\s*/\s*"
+        r"(?P<t2>[+-]?\d+(?:\.\d+)?)"
+        r"\s*"
+        r"(?:°|º|˚)?"
+        r"\s*(?P<u2>C|F|K)\b",
+        re.IGNORECASE,
+    )
+
+    match = pair_pattern.search(text)
+
+    if match:
+        u1 = match.group("u1").upper()
+        u2 = match.group("u2").upper()
+
+        if u1 == "C":
+            u1 = "°C"
+        elif u1 == "F":
+            u1 = "°F"
+
+        if u2 == "C":
+            u2 = "°C"
+        elif u2 == "F":
+            u2 = "°F"
+
+        return (
+            float(match.group("t1")),
+            u1,
+            float(match.group("t2")),
+            u2,
+        )
+
+    # ---------------------------------------------------------
+    # Single temperature:
+    #
+    # 68 °F
+    # 20 °C
+    # ---------------------------------------------------------
+
+    temperature, temperature_unit = _extract_temperature(
+        text
+    )
+
+    return (
+        temperature,
+        temperature_unit,
+        None,
+        None,
+    )
+
+
+
+def _extract_density_quantity(
+    text: str,
+) -> tuple[float | None, str | None]:
+    """Extract a numeric density and its explicitly reported unit."""
+
+    if not text:
+        return None, None
+
+    number_pattern = (
+        r"[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)?"
+        r"(?:\.\d+)?"
+    )
+
+    unit_pattern = (
+        r"(?:"
+        r"g\s*/\s*(?:cm3|cm\^3|cm³|cu\s*cm|cubic\s*cm)"
+        r"|g\s*/\s*mL"
+        r"|kg\s*/\s*(?:m3|m\^3|m³)"
+        r"|kg\s*/\s*L"
+        r"|lb\s*/\s*(?:ft3|ft\^3|ft³)"
+        r"|g\s*/\s*L"
+        r")"
+    )
+
+    match = re.search(
+        rf"(?P<number>{number_pattern})"
+        rf"\s*(?P<unit>{unit_pattern})"
+        rf"(?![A-Za-z])",
+        text,
+        re.IGNORECASE,
+    )
+
+    if not match:
+        return None, None
+
+    value = _parse_number(match.group("number"))
+    unit = _normalize_density_unit(match.group("unit"))
+
+    return value, unit
+
+
+
+# =============================================================================
+# DENSITY
+# =============================================================================
+
+
+def normalize_density(
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize experimental density observations from PubChem."""
+
+    result = _copy_common_fields(record)
+    result["property_type"] = "density"
+    result["observations"] = []
+
+    # Generic experimental normalization stores measurements
+    # in the record's values list.
+    values = record.get("values", [])
+
+    # Support a single top-level value as a fallback.
+    if not values:
+        raw_value = (
+            record.get("raw_value")
+            or record.get("raw")
+            or record.get("value")
+        )
+        if raw_value:
+            values = [{"raw_value": raw_value}]
+
+    for item in values:
+        if not isinstance(item, dict):
+            continue
+
+        raw_value = (
+            item.get("raw_value")
+            or item.get("raw")
+            or item.get("value")
+        )
+
+        if raw_value is None or not str(raw_value).strip():
+            result["observations"].append({
+                "raw_value": raw_value,
+                "value": None,
+                "unit": None,
+                "temperature": None,
+                "temperature_unit": None,
+                "reference_temperature": None,
+                "reference_temperature_unit": None,
+                "qualitative": None,
+                "interpretation": "unknown",
+            })
+            continue
+
+        raw_value = str(raw_value).strip()
+
+        relative_density = bool(re.search(
+            r"relative\s+density|specific\s+gravity",
+            raw_value,
+            re.IGNORECASE,
+        ))
+
+        (
+            temperature,
+            temperature_unit,
+            reference_temperature,
+            reference_temperature_unit,
+        ) = _extract_density_temperature(raw_value)
+
+        value, unit = _extract_density_quantity(raw_value)
+
+        if value is not None:
+            interpretation = (
+                "relative_density"
+                if relative_density
+                else "absolute_density"
+            )
+
+        else:
+            # Remove temperature expressions before looking for
+            # a bare numerical measurement.
+            cleaned = re.sub(
+                r"[+-]?\d+(?:\.\d+)?\s*"
+                r"(?:°|º|˚)?\s*(?:C|F|K)\b",
+                "",
+                raw_value,
+                flags=re.IGNORECASE,
+            )
+
+            # For "Relative density (water = 1): 1.4",
+            # prefer the number after the colon.
+            if relative_density:
+                after_colon = re.search(
+                    r":\s*([+-]?\d+(?:\.\d+)?)",
+                    cleaned,
+                )
+                number_match = after_colon or re.search(
+                    r"(?<![\d.])([+-]?\d+(?:\.\d+)?)(?![\d.])",
+                    cleaned,
+                )
+            else:
+                number_match = re.search(
+                    r"(?<![\d.])([+-]?\d+(?:\.\d+)?)(?![\d.])",
+                    cleaned,
+                )
+
+            value = (
+                _parse_number(number_match.group(1))
+                if number_match
+                else None
+            )
+
+            interpretation = (
+                "relative_density"
+                if relative_density
+                else "absolute_density"
+            )
+
+        if value is None:
+            interpretation = "qualitative"
+
+        observation = {
+            "raw_value": raw_value,
+            "value": value,
+            "unit": unit,
+            "temperature": temperature,
+            "temperature_unit": temperature_unit,
+            "reference_temperature": reference_temperature,
+            "reference_temperature_unit": reference_temperature_unit,
+            "qualitative": (
+                raw_value if value is None else None
+            ),
+            "interpretation": interpretation,
+        }
+
+        result["observations"].append(observation)
+
+    return result
 
 
 # ============================================================
@@ -1113,9 +1424,10 @@ def normalize_boiling_point(
 # ============================================================
 
 PROPERTY_NORMALIZERS = {
-    "melting point": normalize_melting_point,
-    "boiling point": normalize_boiling_point,
     "solubility": normalize_solubility,
+    "melting_point": normalize_melting_point,
+    "boiling_point": normalize_boiling_point,
+    "density": normalize_density,
 }
 
 
