@@ -5,15 +5,6 @@
 5. Keep the cli open for more searched instead of exiting the cli automatically after every search, so one should not concern with running the command of "python src/main.py" again, until they exit by typing "exit/EXIT/eXIT/Exit" or selecting "exit" option from menu.
 6. Add a menu section where the user can control what the task or feature one can use,
 
-
-
-
-
-
-
-
-
-
 SMILES Generator — Project Roadmap
 
 Checkpoint 1 — Chemical name to SMILES
@@ -168,8 +159,8 @@ Use this as your development rule:
    What to note on your paper
    Your immediate sequence is:
 
-- [ ] Checkpoint 3: Finish experimental property normalization, beginning with Density.
-- [ ] Checkpoint 4: Finish the remaining experimental properties.
+- [X] Checkpoint 3: Finish experimental property normalization, beginning with Density.
+- [X] Checkpoint 4: Finish the remaining experimental properties.
 - [ ] Checkpoint 5: Add biological activity and molecular target data.
 - [ ] Checkpoint 6: Add safety and toxicity data.
 - [ ] Checkpoint 7: Complete drug-likeness filters.
