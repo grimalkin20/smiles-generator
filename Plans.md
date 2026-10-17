@@ -162,7 +162,7 @@ Use this as your development rule:
 - [X] Checkpoint 3: Finish experimental property normalization, beginning with Density.
 - [X] Checkpoint 4: Finish the remaining experimental properties.
 - [X] Checkpoint 5: Add biological activity and molecular target data.
-- [ ] Checkpoint 6: Add safety and toxicity data.
+- [X] Checkpoint 6: Add safety and toxicity data.
 - [ ] Checkpoint 7: Complete drug-likeness filters.
 - [ ] Checkpoint 8: Integrate all scientific data into one pipeline.
 - [ ] Checkpoint 9: Run regression tests, improve reliability, and track known issues.
@@ -170,4 +170,6 @@ Use this as your development rule:
 - [ ] Checkpoint 11: Build scientific reports and exports.
 - [ ] Checkpoint 12: Develop structure-image-to-SMILES recognition.
 - [ ] Checkpoint 13: Document, package, and release the project.
+- [ ] 
+- [ ] 
   Our next task is Density normalization. We will keep the working Solubility V3.1 checkpoint intact, test Density independently, and avoid changing database code until the scientific pipeline is verified. This keeps us moving toward completion without destabilizing the features that already work.

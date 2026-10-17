@@ -1,0 +1,169 @@
+[1mdiff --git a/src/chemistry/rdkit_utils.py b/src/chemistry/rdkit_utils.py[m
+[1mindex 8684fe2..9291d54 100644[m
+[1m--- a/src/chemistry/rdkit_utils.py[m
+[1m+++ b/src/chemistry/rdkit_utils.py[m
+[36m@@ -214,27 +214,108 @@[m [mdef calculate_properties(smiles):[m
+ # DRUG-LIKENESS[m
+ # ============================================================[m
+ [m
+[31m-def calculate_lipinski(properties):[m
+[32m+[m[32mdef calculate_lipinski_details(properties):[m
+     """[m
+[31m-    Apply a simple Lipinski Rule-of-Five check.[m
+[32m+[m[32m    Evaluate the four conventional Lipinski Rule-of-Five criteria.[m
+ [m
+[31m-    Rules:[m
+[31m-        Molecular weight <= 500[m
+[31m-        LogP <= 5[m
+[31m-        HBD <= 5[m
+[31m-        HBA <= 10[m
+[32m+[m[32m    A compound satisfies the conventional rule when it has[m
+[32m+[m[32m    no more than one violation.[m
+ [m
+[31m-    Returns:[m
+[31m-        True if all criteria pass.[m
+[32m+[m[32m    Missing or invalid descriptor values are not treated as passes.[m
+[32m+[m[32m    If any required descriptor is unavailable, the overall result[m
+[32m+[m[32m    is None because the complete assessment cannot be made.[m
+     """[m
+ [m
+[31m-    return ([m
+[31m-        properties["molecular_weight"] <= 500[m
+[31m-        and properties["logp"] <= 5[m
+[31m-        and properties["h_bond_donors"] <= 5[m
+[31m-        and properties["h_bond_acceptors"] <= 10[m
+[32m+[m[32m    import math[m
+[32m+[m
+[32m+[m[32m    criteria = {[m
+[32m+[m[32m        "molecular_weight": {[m
+[32m+[m[32m            "threshold": 500,[m
+[32m+[m[32m            "operator": "<=",[m
+[32m+[m[32m        },[m
+[32m+[m[32m        "logp": {[m
+[32m+[m[32m            "threshold": 5,[m
+[32m+[m[32m            "operator": "<=",[m
+[32m+[m[32m        },[m
+[32m+[m[32m        "h_bond_donors": {[m
+[32m+[m[32m            "threshold": 5,[m
+[32m+[m[32m            "operator": "<=",[m
+[32m+[m[32m        },[m
+[32m+[m[32m        "h_bond_acceptors": {[m
+[32m+[m[32m            "threshold": 10,[m
+[32m+[m[32m            "operator": "<=",[m
+[32m+[m[32m        },[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    rules = {}[m
+[32m+[m[32m    violation_count = 0[m
+[32m+[m[32m    evaluated_rule_count = 0[m
+[32m+[m
+[32m+[m[32m    for property_name, criterion in criteria.items():[m
+[32m+[m[32m        value = properties.get(property_name)[m
+[32m+[m[32m        threshold = criterion["threshold"][m
+[32m+[m
+[32m+[m[32m        valid_value = ([m
+[32m+[m[32m            isinstance(value, (int, float))[m
+[32m+[m[32m            and not isinstance(value, bool)[m
+[32m+[m[32m            and math.isfinite(value)[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        if not valid_value:[m
+[32m+[m[32m            rules[property_name] = {[m
+[32m+[m[32m                "value": value,[m
+[32m+[m[32m                "threshold": threshold,[m
+[32m+[m[32m                "operator": "<=",[m
+[32m+[m[32m                "passed": None,[m
+[32m+[m[32m            }[m
+[32m+[m[32m            continue[m
+[32m+[m
+[32m+[m[32m        passed = value <= threshold[m
+[32m+[m[32m        evaluated_rule_count += 1[m
+[32m+[m
+[32m+[m[32m        if not passed:[m
+[32m+[m[32m            violation_count += 1[m
+[32m+[m
+[32m+[m[32m        rules[property_name] = {[m
+[32m+[m[32m            "value": value,[m
+[32m+[m[32m            "threshold": threshold,[m
+[32m+[m[32m            "operator": "<=",[m
+[32m+[m[32m            "passed": passed,[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m    complete = evaluated_rule_count == len(criteria)[m
+[32m+[m
+[32m+[m[32m    lipinski_pass = ([m
+[32m+[m[32m        violation_count <= 1[m
+[32m+[m[32m        if complete[m
+[32m+[m[32m        else None[m
+     )[m
+ [m
+[32m+[m[32m    return {[m
+[32m+[m[32m        "rules": rules,[m
+[32m+[m[32m        "violation_count": ([m
+[32m+[m[32m            violation_count if complete else None[m
+[32m+[m[32m        ),[m
+[32m+[m[32m        "evaluated_rule_count": evaluated_rule_count,[m
+[32m+[m[32m        "complete": complete,[m
+[32m+[m[32m        "lipinski_pass": lipinski_pass,[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m
+[32m+[m[32mdef calculate_lipinski(properties):[m
+[32m+[m[32m    """[m
+[32m+[m[32m    Return the conventional Lipinski Rule-of-Five result.[m
+[32m+[m
+[32m+[m[32m    Returns:[m
+[32m+[m[32m        True: Complete assessment with zero or one violation.[m
+[32m+[m[32m        False: Complete assessment with two or more violations.[m
+[32m+[m[32m        None: Assessment incomplete due to missing/invalid data.[m
+[32m+[m[32m    """[m
+[32m+[m
+[32m+[m[32m    result = calculate_lipinski_details(properties)[m
+[32m+[m
+[32m+[m[32m    return result["lipinski_pass"][m
+[32m+[m
+ [m
+ def calculate_veber(properties):[m
+     """[m
+[36m@@ -312,6 +393,7 @@[m [mdef check_pains(smiles):[m
+ # COMPLETE SCIENTIFIC CALCULATION[m
+ # ============================================================[m
+ [m
+[32m+[m
+ def calculate_scientific_properties(smiles):[m
+     """[m
+     Calculate the complete set of currently supported[m
+[36m@@ -321,17 +403,17 @@[m [mdef calculate_scientific_properties(smiles):[m
+     properties = calculate_properties(smiles)[m
+ [m
+     # Drug-likeness[m
+[31m-    properties["lipinski_pass"] = calculate_lipinski([m
+[31m-        properties[m
+[31m-    )[m
+[32m+[m[32m    lipinski = calculate_lipinski_details(properties)[m
+ [m
+[31m-    properties["veber_pass"] = calculate_veber([m
+[31m-        properties[m
+[32m+[m[32m    properties["lipinski_pass"] = lipinski["lipinski_pass"][m
+[32m+[m[32m    properties["lipinski_details"] = lipinski["rules"][m
+[32m+[m[32m    properties["lipinski_violation_count"] = ([m
+[32m+[m[32m        lipinski["violation_count"][m
+     )[m
+[32m+[m[32m    properties["lipinski_complete"] = lipinski["complete"][m
+ [m
+[31m-    properties["qed_score"] = calculate_qed([m
+[31m-        smiles[m
+[31m-    )[m
+[32m+[m[32m    properties["veber_pass"] = calculate_veber(properties)[m
+[32m+[m[32m    properties["qed_score"] = calculate_qed(smiles)[m
+ [m
+     # PAINS[m
+     pains = check_pains(smiles)[m
+[36m@@ -342,6 +424,7 @@[m [mdef calculate_scientific_properties(smiles):[m
+     return properties[m
+ [m
+ [m
+[32m+[m
+ # ============================================================[m
+ # 3D STRUCTURE[m
+ # ============================================================[m

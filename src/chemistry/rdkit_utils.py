@@ -214,26 +214,107 @@ def calculate_properties(smiles):
 # DRUG-LIKENESS
 # ============================================================
 
+def calculate_lipinski_details(properties):
+    """
+    Evaluate the four conventional Lipinski Rule-of-Five criteria.
+
+    A compound satisfies the conventional rule when it has
+    no more than one violation.
+
+    Missing or invalid descriptor values are not treated as passes.
+    If any required descriptor is unavailable, the overall result
+    is None because the complete assessment cannot be made.
+    """
+
+    import math
+
+    criteria = {
+        "molecular_weight": {
+            "threshold": 500,
+            "operator": "<=",
+        },
+        "logp": {
+            "threshold": 5,
+            "operator": "<=",
+        },
+        "h_bond_donors": {
+            "threshold": 5,
+            "operator": "<=",
+        },
+        "h_bond_acceptors": {
+            "threshold": 10,
+            "operator": "<=",
+        },
+    }
+
+    rules = {}
+    violation_count = 0
+    evaluated_rule_count = 0
+
+    for property_name, criterion in criteria.items():
+        value = properties.get(property_name)
+        threshold = criterion["threshold"]
+
+        valid_value = (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+        )
+
+        if not valid_value:
+            rules[property_name] = {
+                "value": value,
+                "threshold": threshold,
+                "operator": "<=",
+                "passed": None,
+            }
+            continue
+
+        passed = value <= threshold
+        evaluated_rule_count += 1
+
+        if not passed:
+            violation_count += 1
+
+        rules[property_name] = {
+            "value": value,
+            "threshold": threshold,
+            "operator": "<=",
+            "passed": passed,
+        }
+
+    complete = evaluated_rule_count == len(criteria)
+
+    lipinski_pass = (
+        violation_count <= 1
+        if complete
+        else None
+    )
+
+    return {
+        "rules": rules,
+        "violation_count": (
+            violation_count if complete else None
+        ),
+        "evaluated_rule_count": evaluated_rule_count,
+        "complete": complete,
+        "lipinski_pass": lipinski_pass,
+    }
+
+
 def calculate_lipinski(properties):
     """
-    Apply a simple Lipinski Rule-of-Five check.
-
-    Rules:
-        Molecular weight <= 500
-        LogP <= 5
-        HBD <= 5
-        HBA <= 10
+    Return the conventional Lipinski Rule-of-Five result.
 
     Returns:
-        True if all criteria pass.
+        True: Complete assessment with zero or one violation.
+        False: Complete assessment with two or more violations.
+        None: Assessment incomplete due to missing/invalid data.
     """
 
-    return (
-        properties["molecular_weight"] <= 500
-        and properties["logp"] <= 5
-        and properties["h_bond_donors"] <= 5
-        and properties["h_bond_acceptors"] <= 10
-    )
+    result = calculate_lipinski_details(properties)
+
+    return result["lipinski_pass"]
 
 
 def calculate_veber(properties):
@@ -312,6 +393,7 @@ def check_pains(smiles):
 # COMPLETE SCIENTIFIC CALCULATION
 # ============================================================
 
+
 def calculate_scientific_properties(smiles):
     """
     Calculate the complete set of currently supported
@@ -321,17 +403,17 @@ def calculate_scientific_properties(smiles):
     properties = calculate_properties(smiles)
 
     # Drug-likeness
-    properties["lipinski_pass"] = calculate_lipinski(
-        properties
-    )
+    lipinski = calculate_lipinski_details(properties)
 
-    properties["veber_pass"] = calculate_veber(
-        properties
+    properties["lipinski_pass"] = lipinski["lipinski_pass"]
+    properties["lipinski_details"] = lipinski["rules"]
+    properties["lipinski_violation_count"] = (
+        lipinski["violation_count"]
     )
+    properties["lipinski_complete"] = lipinski["complete"]
 
-    properties["qed_score"] = calculate_qed(
-        smiles
-    )
+    properties["veber_pass"] = calculate_veber(properties)
+    properties["qed_score"] = calculate_qed(smiles)
 
     # PAINS
     pains = check_pains(smiles)
@@ -340,6 +422,7 @@ def calculate_scientific_properties(smiles):
     properties["pains_alerts"] = pains["alerts"]
 
     return properties
+
 
 
 # ============================================================
